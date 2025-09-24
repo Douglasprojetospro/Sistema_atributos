@@ -4,13 +4,31 @@ from io import BytesIO
 import re
 import tempfile
 import os
-from pathlib import Path
 
-# Configurações para melhor performance com arquivos grandes
-st.set_page_config(page_title="Processador de Planilhas - Otimizado", page_icon="📊", layout="wide")
+# Configurações específicas para deploy no Render
+st.set_page_config(
+    page_title="Processador de Planilhas - Otimizado", 
+    page_icon="📊", 
+    layout="wide"
+)
 
 # Configurações do pandas para melhor performance
 pd.set_option('mode.chained_assignment', None)
+
+# Verifica se está em produção no Render
+def is_render():
+    return 'RENDER' in os.environ or ('HOSTNAME' in os.environ and 'render' in os.environ['HOSTNAME'])
+
+# Aplicar estilos específicos para produção
+if is_render():
+    st.markdown("""
+    <style>
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 st.title("📊 Processador de Planilhas - Otimizado para Grandes Arquivos")
 st.markdown("---")
@@ -127,45 +145,9 @@ def ler_arquivo_eficiente(arquivo):
     Lê arquivo Excel de forma otimizada
     """
     try:
-        # Tentar ler apenas as colunas necessárias
+        # Para o Render, usar abordagem mais simples
         if arquivo.name.endswith('.xlsx'):
-            # Ler metadados para verificar tamanho
-            temp_dir = tempfile.mkdtemp()
-            temp_path = os.path.join(temp_dir, arquivo.name)
-            
-            with open(temp_path, 'wb') as f:
-                f.write(arquivo.getvalue())
-            
-            # Verificar tamanho do arquivo
-            tamanho_mb = os.path.getsize(temp_path) / (1024 * 1024)
-            st.info(f"📁 Tamanho do arquivo: {tamanho_mb:.2f} MB")
-            
-            # Estratégias diferentes baseadas no tamanho
-            if tamanho_mb > 50:
-                st.warning("⚡ Arquivo grande detectado. Usando modo de leitura otimizado...")
-                # Ler em chunks para arquivos muito grandes
-                xl = pd.ExcelFile(temp_path)
-                sheets = xl.sheet_names
-                
-                # Ler primeira linha para verificar colunas
-                primeira_linha = pd.read_excel(temp_path, nrows=1)
-                
-                # Ler dados com otimizações
-                df = pd.read_excel(
-                    temp_path,
-                    usecols=['ID', 'Descrição'] if all(col in primeira_linha.columns for col in ['ID', 'Descrição']) else None,
-                    dtype={'ID': 'str', 'Descrição': 'str'},
-                    engine='openpyxl'
-                )
-                
-            else:
-                # Leitura normal para arquivos menores
-                df = pd.read_excel(temp_path, engine='openpyxl')
-            
-            # Limpar arquivo temporário
-            os.remove(temp_path)
-            os.rmdir(temp_dir)
-            
+            df = pd.read_excel(arquivo, engine='openpyxl')
             return df
             
     except Exception as e:
@@ -180,13 +162,15 @@ if data_file and config_file:
         col1, col2, col3 = st.columns(3)
         
         with col1:
+            # No Render Free, usar lotes menores para evitar timeout
+            tamanho_lote_render = 500 if is_render() else 1000
             usar_lotes = st.checkbox("Usar processamento em lotes", value=True, 
                                    help="Recomendado para arquivos grandes")
         
         with col2:
             tamanho_lote = st.selectbox("Tamanho do lote", 
                                       [500, 1000, 2000, 5000], 
-                                      index=1,
+                                      index=0 if is_render() else 1,
                                       help="Número de linhas processadas por vez")
         
         with col3:
@@ -202,7 +186,7 @@ if data_file and config_file:
         config_df = pd.read_excel(config_file)
         progress_bar_leit.progress(50)
         
-        # Ler arquivo de dados com estratégia otimizada
+        # Ler arquivo de dados
         data_df = ler_arquivo_eficiente(data_file)
         progress_bar_leit.progress(100)
         
@@ -238,6 +222,10 @@ if data_file and config_file:
         with info_col4:
             tamanho_memoria = data_df.memory_usage(deep=True).sum() / (1024 * 1024)
             st.metric("Uso de memória (MB)", f"{tamanho_memoria:.1f}")
+        
+        # Aviso para Render Free
+        if is_render() and len(data_df) > 10000:
+            st.warning("⚠️ **Aviso Render Free:** Arquivos muito grandes podem causar timeout. Recomendamos processar até 10.000 linhas por vez.")
         
         if mostrar_preview:
             st.subheader("👀 Preview dos Dados")
@@ -342,27 +330,10 @@ if data_file and config_file:
         # Download do resultado
         st.subheader("📥 Download do Resultado")
         
-        st.warning("💡 **Atenção:** Para arquivos muito grandes, o download pode demorar.")
-        
-        # Opção de download em partes para arquivos muito grandes
-        if len(result_df) > 50000:
-            st.info("📁 Arquivo muito grande. Recomendamos dividir o download:")
-            
-            partes = (len(result_df) // 50000) + 1
-            for i in range(partes):
-                inicio = i * 50000
-                fim = min((i + 1) * 50000, len(result_df))
-                parte_df = result_df.iloc[inicio:fim]
-                
-                parte_excel = to_excel(parte_df)
-                st.download_button(
-                    f"💾 Baixar Parte {i+1} (linhas {inicio+1}-{fim})", 
-                    parte_excel, 
-                    file_name=f"relatorio_parte_{i+1}.xlsx",
-                    help=f"Parte {i+1} do relatório"
-                )
+        # Aviso para Render Free
+        if is_render() and len(result_df) > 50000:
+            st.error("📁 **Arquivo muito grande para Render Free:** Recomendamos dividir o processamento.")
         else:
-            # Download único
             result_excel = to_excel(result_df)
             
             st.download_button(
@@ -377,45 +348,58 @@ if data_file and config_file:
         
     except Exception as e:
         st.error(f"❌ Erro durante o processamento: {str(e)}")
-        st.info("💡 Para arquivos muito grandes, tente dividi-los em partes menores.")
+        if is_render():
+            st.info("💡 **Dica Render:** Para arquivos grandes, tente dividir em partes menores.")
+        else:
+            st.info("💡 Para arquivos muito grandes, tente dividi-los em partes menores.")
 
 else:
     st.info("👆 Faça o upload de ambas as planilhas para iniciar o processamento.")
 
 # Estratégias para arquivos muito grandes
-with st.expander("🚀 Estratégias para Arquivos Muito Grandes (500MB+)"):
+with st.expander("🚀 Estratégias para Arquivos Grandes no Render"):
     st.markdown("""
-    ### Se seus arquivos forem maiores que 500MB:
+    ### No Render Free:
     
-    **1. Divida os arquivos de dados:**
-    - Separe em múltiplos arquivos de ~100MB cada
+    **Limitações:**
+    - 512MB RAM
+    - Timeout após alguns minutos
+    - Aplicação dorme após inatividade
+    
+    **Recomendações:**
+    - Processe até 10.000 linhas por vez
+    - Divida arquivos grandes em partes
+    - Use tamanho de lote de 500 linhas
+    
+    ### Para melhor performance:
+    
+    1. **Divida os arquivos de dados:**
+    - Separe em múltiplos arquivos de ~5.000 linhas cada
     - Processe um por um
-    - Combine os resultados depois
     
-    **2. Use um servidor com mais recursos:**
-    - Aumente a memória RAM disponível
-    - Use instâncias com melhor processamento
-    
-    **3. Otimize suas planilhas:**
-    - Remova colunas desnecessárias
-    - Use compactação ZIP nos arquivos XLSX
-    - Converta para CSV (menor tamanho)
-    
-    **4. Processamento em nuvem:**
-    - Use serviços como AWS, Google Cloud
-    - Processe em máquinas mais potentes
+    2. **Otimize as configurações:**
+    - Use padrões de busca mais específicos
+    - Remova colunas desnecessárias das planilhas
     """)
 
 with st.expander("ℹ️ Instruções de Uso"):
     st.markdown("""
-    ### Modo Otimizado para Grandes Arquivos:
+    ### Como usar:
+    1. **Baixe os modelos** acima
+    2. **Preencha as planilhas** seguindo os modelos
+    3. **Faça o upload** das duas planilhas
+    4. **Aguarde o processamento** e baixe o resultado
     
-    1. **Para arquivos até 200MB:** Processamento normal
-    2. **Para arquivos 200MB-500MB:** Use o modo de lotes
-    3. **Para arquivos 500MB+:** Divida em partes menores
-    
-    ### Dicas de Performance:
-    - Marque "Usar processamento em lotes" para arquivos grandes
-    - Ajuste o tamanho do lote baseado na sua memória
-    - Para arquivos enormes, divida antes do upload
+    ### Exemplo:
+    - **Descrição**: "Ventilador de teto 110 amarelo biv"
+    - **Configuração Voltagem**: 
+      - 110v → padrões: "110,110v,127"
+      - Bivolt → padrões: "bivolt,biv"
+    - **Resultado**: Coluna "Voltagem" com valor "110v, Bivolt"
     """)
+
+# Esta parte final é importante para o Render
+if __name__ == "__main__":
+    # Configurações adicionais para produção
+    if is_render():
+        st.runtime.legacy_caching.clear_cache()
