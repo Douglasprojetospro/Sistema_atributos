@@ -402,4 +402,11 @@ with st.expander("ℹ️ Instruções de Uso"):
 if __name__ == "__main__":
     # Configurações adicionais para produção
     if is_render():
-        st.runtime.legacy_caching.clear_cache()
+        # Limpeza de cache compatível com versões mais novas do Streamlit
+        try:
+            # Tentar método mais recente
+            st.cache_data.clear()
+            st.cache_resource.clear()
+        except AttributeError:
+            # Se não existir, ignorar (não é crítico)
+            pass
