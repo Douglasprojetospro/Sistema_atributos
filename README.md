@@ -1,23 +1,17 @@
-# 📊 Processador de Planilhas Automatizado
+# 📊 Processador de Planilhas - Otimizado
 
-Uma aplicação Streamlit para processamento automático de planilhas XLSX com reconhecimento de padrões em descrições de produtos.
+Processador inteligente de planilhas para reconhecimento de padrões em descrições de produtos, otimizado para grandes volumes de dados.
 
 ## 🚀 Funcionalidades
 
-- ✅ Upload de planilhas de dados e configurações
-- ✅ Reconhecimento inteligente de padrões em descrições
-- ✅ Processamento otimizado para grandes arquivos (até 1GB+)
-- ✅ Download do relatório final em XLSX
-- ✅ Interface intuitiva e responsiva
-
-## 📋 Pré-requisitos
-
-- Python 3.8 ou superior
-- pip (gerenciador de pacotes Python)
+- Processamento de grandes arquivos Excel (até 200k+ linhas)
+- Reconhecimento de padrões em descrições de produtos
+- Interface intuitiva com Streamlit
+- Processamento em lotes para economia de memória
+- Download de resultados em Excel
 
 ## 🛠️ Instalação
 
-1. **Clone o repositório:**
 ```bash
-git clone https://github.com/seu-usuario/relatorios-app.git
-cd relatorios-app
+pip install -r requirements.txt
+streamlit run app.py
