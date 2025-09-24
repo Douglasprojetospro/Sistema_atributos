@@ -1,14 +1,14 @@
-# 📊 Processador de Planilhas - Otimizado
+# 🚀 Processador de Planilhas - Versão Premium
 
-Processador inteligente de planilhas para reconhecimento de padrões em descrições de produtos, otimizado para grandes volumes de dados.
+Processador inteligente otimizado para grandes volumes de dados com suporte a planos pagos no Render.
 
-## 🚀 Funcionalidades
+## ✨ Funcionalidades Premium
 
-- Processamento de grandes arquivos Excel (até 200k+ linhas)
-- Reconhecimento de padrões em descrições de produtos
-- Interface intuitiva com Streamlit
-- Processamento em lotes para economia de memória
-- Download de resultados em Excel
+- **🔄 Processamento otimizado** para planos pagos
+- **📊 Suporte a 150.000+ linhas** no Render
+- **⚡ Velocidade 2-3x maior** que versão free
+- **🎯 Detecção automática** do tipo de plano
+- **📈 Métricas em tempo real** de performance
 
 ## 🛠️ Instalação
 
